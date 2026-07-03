@@ -14,3 +14,9 @@ Thumbs.db
 # Temp
 tmp/
 *.log
+
+tmp_img.json
+tmp_vp.json
+vp*.json
+__pycache__/
+*.pyc
