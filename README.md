@@ -2,36 +2,40 @@
 
 [中文](README.zh-CN.md)
 
-An MCP server that bridges locally-hosted LM Studio vision models to any text-only AI agent — DeepSeek, Claude Code, OpenCode, Cursor, etc.
+Give eyes to your text-only AI agent — bridge LM Studio local vision models to any agent via MCP protocol or CLI.
 
 ## What it does
 
-Text-only LLMs (DeepSeek, Claude Sonnet, etc.) can't process images. Vision-capable models (GPT-4o, Gemini) are either expensive or require sending data to the cloud.
+Text-only LLMs can't process images. Vision-capable models (GPT-4o, Gemini) are either expensive or require sending data to the cloud.
+LM Studio lets you run vision models locally, but only exposes an HTTP API — AI agents can't call it directly.
 
-LM Studio lets you run vision models locally (minicpm-v, qwen-vl, llava, etc.), but only exposes an HTTP API — AI agents can't call it directly.
-
-This project is a thin MCP server in between:
+This project is a thin bridge in between:
 
 ```
 You send an image → AI agent (text-only)
-                    → this MCP server
+                    → this project's service
                     → LM Studio vision model (local)
                     → text description back to agent
 ```
 
-Fully local. No data leaves your machine. Zero cost. No dependencies.
+Fully local. No data leaves your machine. Zero cost. Only Python stdlib required.
 
-## Highlights
+## Which one should I use
 
-- **Single .py file** — zero external dependencies, only Python stdlib
-- **Auto-detects LM Studio** — handles IP changes (DHCP, WiFi switch, VPN) automatically
-- **Standard MCP protocol** — works with any MCP-compatible client, not tied to a specific tool
+| Scenario | Recommended | Why |
+|----------|-------------|-----|
+| Reasonix / Claude Code / Cursor / any MCP agent | **MCP Server** (mcp-server.py) | Standard MCP protocol, configure once |
+| Just want a quick CLI command | **CLI script** (lms-vision.py) | One command, no config |
+| Windows stdio pipe issues | **MCP HTTP Server** (mcp-http-server.cjs) | HTTP transport, bypasses Windows pipe bugs |
 
-## Quick start
+---
+
+## Path A: MCP Server (Universal)
 
 ### Prerequisites
 
-LM Studio running with a vision model loaded, API server enabled (port 1234). Python 3.8+.
+- LM Studio running with a vision model loaded, API server on (port 1234)
+- Python 3.8+
 
 ```bash
 git clone https://github.com/FuchaZ/lm-studio-vision-bridge.git
@@ -62,20 +66,7 @@ args    = ["D:\\path\\to\\lm-studio-vision-bridge\\mcp-server.py"]
 }
 ```
 
-**OpenCode**
-```json
-{
-  "mcp": {
-    "lm-studio-vision": {
-      "type": "local",
-      "command": ["python", "/path/to/lm-studio-vision-bridge/mcp-server.py"],
-      "enabled": true
-    }
-  }
-}
-```
-
-**Cursor / Windsurf** — In MCP settings:
+**OpenCode / Cursor / Windsurf**
 ```
 Name: lm-studio-vision
 Type: command
@@ -109,39 +100,79 @@ Command: python /path/to/lm-studio-vision-bridge/mcp-server.py
 }
 ```
 
-After configuration, just tell your agent: "Take a look at this image: D:\screenshot.png"
+After configuration, just tell your agent: "Take a look at this image."
 
-## Tool
+### Windows users
 
-Single entry point: `read_image_with_model`
+mcp-server.py handles GBK encoding and uses a 120s timeout — ready to use out of the box.
+If stdio pipe mode is unstable, try the HTTP server instead (see below).
+
+### Tool
 
 | Parameter | Description |
 |-----------|-------------|
 | `image_path` | Path to the image file (absolute path recommended) |
-| `prompt` | What you want the model to extract, e.g. "Describe this image" |
+| `prompt` | What you want the model to extract |
 
-## Why auto-detection
+If the model returns reasoning, the result includes both `--- reasoning ---` and `--- answer ---` sections.
 
-LM Studio's IP can change — DHCP lease renewal, WiFi network switch, VPN toggle. This server automatically probes `127.0.0.1:1234`, `localhost:1234`, and every NIC IP on your machine at startup.
+---
 
-You can also run the probe script manually:
+## Path B: CLI Script (Quick)
+
+No MCP setup needed? One command to read an image:
+
+```bash
+python lms-vision.py image.jpg
+python lms-vision.py image.jpg "Describe the text in this image"
+```
+
+Auto-detects LM Studio address and model.
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VISION_MODEL` | auto-pick first | Specify model name |
+| `LM_STUDIO_PORT` | `1234` | LM Studio API port |
+| `MODEL_BASE_URL` | auto-detect | Full LM Studio URL, e.g. `http://192.168.1.5:1234` |
+| `REQUEST_TIMEOUT` | `120` | Request timeout (seconds) |
+
+---
+
+## Path C: MCP HTTP Server (Windows alternative)
+
+If stdio pipe mode is unstable, use the Node.js HTTP version:
+
+```bash
+node mcp-http-server.cjs
+```
+
+Then configure your MCP client to connect to `http://127.0.0.1:3456`.
+Supports same env vars, plus `MCP_PORT` (default 3456).
+
+---
+
+## Auto-detection
+
+LM Studio's IP can change — DHCP renewal, WiFi switch, VPN toggle.
+All services auto-probe `127.0.0.1:1234`, `localhost:1234`, and every NIC IP on your machine at startup.
+
+Manual probe:
 ```powershell
 .\scripts\find-lm-studio.ps1
 ```
-
-## Environment variables
-
-Usually not needed. Override if necessary:
-
-- `VISION_MODEL` — default auto-picks the first model in LM Studio
-- `LM_STUDIO_PORT` — default `1234`
 
 ## Project structure
 
 ```
 lm-studio-vision-bridge/
+├── lms-vision.py           # CLI script (one-shot image reading)
+├── mcp-server.py           # MCP server (stdio transport)
+├── mcp-http-server.py      # MCP HTTP server (Windows recommended)
+├── mcp-http-server.cjs     # Legacy Node.js HTTP server
+├── _bridge.py              # Shared core logic
 ├── SKILL.md                # Reasonix skill definition
-├── mcp-server.py           # The MCP server (the only file that matters)
 ├── README.md               # This file
 ├── README.zh-CN.md         # Chinese version
 └── scripts/
