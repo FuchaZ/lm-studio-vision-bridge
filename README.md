@@ -26,7 +26,7 @@ Fully local. No data leaves your machine. Zero cost. Only Python stdlib required
 |----------|-------------|-----|
 | Reasonix / Claude Code / Cursor / any MCP agent | **MCP Server** (mcp-server.py) | Standard MCP protocol, configure once |
 | Just want a quick CLI command | **CLI script** (lms-vision.py) | One command, no config |
-| Windows stdio pipe issues | **MCP HTTP Server** (mcp-http-server.cjs) | HTTP transport, bypasses Windows pipe bugs |
+| Windows users (recommended) | **MCP HTTP Server** (mcp-http-server.py) | HTTP transport, bypasses Windows stdio pipe issues |
 
 ---
 
@@ -140,16 +140,25 @@ Auto-detects LM Studio address and model.
 
 ---
 
-## Path C: MCP HTTP Server (Windows alternative)
+## Path C: MCP HTTP Server (Windows recommended)
 
-If stdio pipe mode is unstable, use the Node.js HTTP version:
+If stdio pipe mode is unstable (common on Windows), use the Python HTTP version:
 
 ```bash
-node mcp-http-server.cjs
+python mcp-http-server.py
 ```
 
-Then configure your MCP client to connect to `http://127.0.0.1:3456`.
-Supports same env vars, plus `MCP_PORT` (default 3456).
+Listens on `http://127.0.0.1:3456`. Configure your MCP client to connect in HTTP mode.
+
+**Auto-detects LM Studio at startup** — no manual address config needed.
+
+Supports the same env vars (`VISION_MODEL`, `LM_STUDIO_PORT`, `MODEL_BASE_URL`), plus:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_PORT` | `3456` | HTTP server listening port |
+
+> Legacy `mcp-http-server.cjs` (Node.js) is kept but Python version is recommended.
 
 ---
 
