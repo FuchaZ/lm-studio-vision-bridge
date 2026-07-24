@@ -133,7 +133,7 @@ Auto-detects LM Studio address and model.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VISION_MODEL` | auto-pick first | Specify model name |
+| `VISION_MODEL` | 不设置（使用当前加载的模型）| 指定模型名，覆盖默认行为 |
 | `LM_STUDIO_PORT` | `1234` | LM Studio API port |
 | `MODEL_BASE_URL` | auto-detect | Full LM Studio URL, e.g. `http://192.168.1.5:1234` |
 | `REQUEST_TIMEOUT` | `120` | Request timeout (seconds) |

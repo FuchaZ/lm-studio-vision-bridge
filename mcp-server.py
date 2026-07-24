@@ -13,6 +13,7 @@ MCP Server (stdio) — LM Studio Vision Bridge
 """
 
 import json
+import os
 import re
 import sys
 
@@ -20,7 +21,6 @@ from _bridge import (
     TOOL_DEFINITION,
     DEFAULT_PROMPT,
     call_tool,
-    find_model,
     scan_lm_studio,
 )
 
@@ -87,14 +87,7 @@ def _handle_tool_call(params):
         }
 
     if not _model:
-        _model = find_model(_lm_base)
-    if not _model:
-        return {
-            "isError": True,
-            "content": [
-                {"type": "text", "text": "No vision model loaded in LM Studio."}
-            ],
-        }
+        _model = os.environ.get("VISION_MODEL", "").strip() or None
 
     image_path = args.get("image_path", "")
     prompt = args.get("prompt", DEFAULT_PROMPT)

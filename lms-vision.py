@@ -8,6 +8,7 @@ LM Studio Vision Bridge — CLI 快捷调用脚本
 
 import base64
 import json
+import mimetypes
 import os
 import re
 import socket
@@ -18,7 +19,7 @@ import urllib.request
 DEFAULT_PORT = int(os.environ.get("LM_STUDIO_PORT", "1234"))
 REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", "120"))
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "4096"))
-MODEL = os.environ.get("VISION_MODEL", "")  # 可选，不设则自动探测
+MODEL = os.environ.get("VISION_MODEL", "")  # 可选，不设则不传 model 字段（使用 LM Studio 当前加载的模型）
 
 DEFAULT_PROMPT = (
     "请详细描述这张图片的内容，包括所有文字、图表、界面元素等。用中文回答。"
@@ -72,15 +73,17 @@ def _scan_lm_studio():
 # ── LM Studio API 调用 ─────────────────────────────────
 
 
-def encode_image(path: str) -> str:
+def encode_image(path: str) -> tuple[str, str]:
     with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+        b64 = base64.b64encode(f.read()).decode()
+    mime, _ = mimetypes.guess_type(path)
+    return b64, mime or "image/png"
 
 
-def ask_lms(base_url: str, model: str, image_b64: str, prompt: str):
-    """发送图片到 LM Studio 完成请求，返回 {content, reasoning, usage} 或 None。"""
-    payload = {
-        "model": model,
+def ask_lms(base_url: str, model: str | None, image_b64: str, mime: str, prompt: str):
+    """发送图片到 LM Studio 完成请求，返回 {content, reasoning, usage} 或 None。
+    model 为 None/空时不传 model 字段（使用当前加载的模型）。"""
+    body = {
         "max_tokens": MAX_TOKENS,
         "temperature": 0.01,
         "messages": [
@@ -90,16 +93,19 @@ def ask_lms(base_url: str, model: str, image_b64: str, prompt: str):
                     {"type": "text", "text": prompt},
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{image_b64}"},
+                        "image_url": {"url": f"data:{mime};base64,{image_b64}"},
                     },
                 ],
             }
         ],
     }
+    if model:
+        body["model"] = model
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         f"{base_url}/v1/chat/completions",
-        data=json.dumps(payload).encode(),
+        data=payload,
         headers={"Content-Type": "application/json"},
     )
 
@@ -123,20 +129,6 @@ def ask_lms(base_url: str, model: str, image_b64: str, prompt: str):
     except Exception as e:
         print(f"[ERROR] {e}", file=sys.stderr)
         return None
-
-
-def _find_model(base_url: str) -> str | None:
-    """从 LM Studio 查询第一个可用模型。"""
-    try:
-        req = urllib.request.Request(f"{base_url}/v1/models")
-        data = json.loads(
-            urllib.request.urlopen(req, timeout=5).read()
-        ).get("data", [])
-        if data:
-            return data[0]["id"]
-    except Exception:
-        pass
-    return None
 
 
 # ── 主入口 ──────────────────────────────────────────────
@@ -169,21 +161,16 @@ def main():
         )
         sys.exit(1)
 
-    # 2. 确定模型名
-    model = MODEL or _find_model(base_url)
-    if not model:
-        print(
-            "[ERROR] 无法确定视觉模型。请在 LM Studio 中加载一个视觉模型，"
-            "或设置环境变量 VISION_MODEL。",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    print(f"[INFO] 已连接到 {base_url}，模型: {model}", file=sys.stderr)
+    # 2. 模型名（可选，空则不传 model 字段，用 LM Studio 当前加载的模型）
+    model = MODEL or None
+    if model:
+        print(f"[INFO] 已连接到 {base_url}，指定模型: {model}", file=sys.stderr)
+    else:
+        print(f"[INFO] 已连接到 {base_url}，使用 LM Studio 当前加载的模型", file=sys.stderr)
 
     # 3. 编码图片
     try:
-        b64 = encode_image(img_path)
+        b64, mime = encode_image(img_path)
     except Exception as e:
         print(f"[ERROR] 读取图片失败: {e}", file=sys.stderr)
         sys.exit(1)
@@ -191,10 +178,10 @@ def main():
     print(f"[INFO] 图片已读取 ({len(b64)} bytes)，发送请求...", file=sys.stderr)
 
     # 4. 发送请求（失败重试一次）
-    result = ask_lms(base_url, model, b64, prompt)
+    result = ask_lms(base_url, model, b64, mime, prompt)
     if result is None:
         print("[INFO] 重试中...", file=sys.stderr)
-        result = ask_lms(base_url, model, b64, prompt)
+        result = ask_lms(base_url, model, b64, mime, prompt)
 
     if result is None:
         print(

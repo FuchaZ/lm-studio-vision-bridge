@@ -7,6 +7,7 @@ _bridge.py — LM Studio Vision Bridge 共享核心逻辑
 
 import base64
 import json
+import mimetypes
 import os
 import socket
 import time
@@ -83,56 +84,51 @@ def scan_lm_studio() -> str | None:
 # ── 模型查询 ──────────────────────────────────────────
 
 
-def find_model(base_url: str) -> str | None:
-    """查询 LM Studio 中加载的第一个模型。"""
-    model = os.environ.get("VISION_MODEL", "")
-    if model:
-        return model
-    try:
-        req = urllib.request.Request(f"{base_url}/v1/models")
-        data = json.loads(
-            urllib.request.urlopen(req, timeout=5).read()
-        ).get("data", [])
-        if data:
-            return data[0]["id"]
-    except Exception:
-        pass
-    return None
+def find_model() -> str | None:
+    """只读环境变量 VISION_MODEL，返回模型名或 None。不自动查 LM Studio 列表。"""
+    model = os.environ.get("VISION_MODEL", "").strip()
+    return model if model else None
 
 
 # ── LM Studio API 调用 ────────────────────────────────
 
 
 def describe_image(
-    base_url: str, model: str, image_path: str, prompt: str
+    base_url: str, model: str | None, image_path: str, prompt: str
 ) -> dict | str:
     """发送图片+提示词到 LM Studio。
 
+    model 为 None 或空时不传 model 字段，LM Studio 会用当前加载的模型。
     成功返回 {"text": str, "reasoning": str|None}
     失败返回错误字符串（以 "LM Studio" 或 "Cannot" 或 "Invalid" 开头）。
     """
     with open(image_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if not mime_type:
+        mime_type = "image/png"  # fallback
 
-    payload = json.dumps(
-        {
-            "model": model,
-            "max_tokens": MAX_TOKENS,
-            "temperature": 0.01,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{b64}"},
-                        },
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
-        }
-    ).encode()
+    body = {
+        "max_tokens": MAX_TOKENS,
+        "temperature": 0.01,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{b64}"},
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    }
+    # 只在明确指定了模型时才传 model 字段
+    if model:
+        body["model"] = model
+
+    payload = json.dumps(body).encode()
 
     req = urllib.request.Request(
         f"{base_url}/v1/chat/completions",
@@ -162,7 +158,7 @@ def describe_image(
 # ── 工具调用逻辑（被两个 server 共享）────────────────
 
 
-def call_tool(lm_base: str, model: str, image_path: str, prompt: str) -> dict:
+def call_tool(lm_base: str, model: str | None, image_path: str, prompt: str) -> dict:
     """执行 read_image_with_model 调用，返回 MCP 兼容的 result dict。"""
     # 确认文件存在
     if not os.path.isabs(image_path):

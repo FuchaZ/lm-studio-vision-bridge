@@ -21,7 +21,6 @@ from _bridge import (
     TOOL_DEFINITION,
     DEFAULT_PROMPT,
     call_tool,
-    find_model,
     scan_lm_studio,
 )
 
@@ -141,14 +140,7 @@ class MCPHandler(BaseHTTPRequestHandler):
             }
 
         if not _model:
-            _model = find_model(_lm_base)
-        if not _model:
-            return {
-                "isError": True,
-                "content": [
-                    {"type": "text", "text": "No vision model loaded in LM Studio."}
-                ],
-            }
+            _model = os.environ.get("VISION_MODEL", "").strip() or None
 
         image_path = args.get("image_path", "")
         prompt = args.get("prompt", DEFAULT_PROMPT)
@@ -174,8 +166,9 @@ def main():
     print("[INFO] 正在探测 LM Studio...", file=sys.stderr)
     _lm_base = scan_lm_studio()
     if _lm_base:
-        _model = find_model(_lm_base)
-        print(f"[INFO] 已连接: {_lm_base}  模型: {_model}", file=sys.stderr)
+        _model = os.environ.get("VISION_MODEL", "").strip() or None
+        model_info = _model or "(使用当前加载的模型)"
+        print(f"[INFO] 已连接: {_lm_base}  模型: {model_info}", file=sys.stderr)
     else:
         print("[WARN] 未找到 LM Studio，将在首次请求时重试", file=sys.stderr)
 

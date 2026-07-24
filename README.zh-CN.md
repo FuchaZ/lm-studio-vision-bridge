@@ -133,7 +133,7 @@ python lms-vision.py 图片路径.jpg "描述这张图里的文字内容"
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `VISION_MODEL` | 自动选第一个模型 | 指定模型名 |
+| `VISION_MODEL` | 不设置（使用当前加载的模型）| 指定模型名，覆盖默认行为 |
 | `LM_STUDIO_PORT` | `1234` | LM Studio API 端口 |
 | `MODEL_BASE_URL` | 自动探测 | 指定 LM Studio 完整地址，如 `http://192.168.1.5:1234` |
 | `REQUEST_TIMEOUT` | `120` | 请求超时（秒） |
