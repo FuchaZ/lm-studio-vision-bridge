@@ -4,6 +4,55 @@
 
 把本地 LM Studio 跑的视觉模型挂载成 AI agent 的眼睛——让 DeepSeek、Claude Code、Reasonix 等纯文本 agent 也能识别图片。
 
+## 快速开始：5 分钟上手
+
+### 1️⃣ 安装 LM Studio
+前往 [lmstudio.ai/download](https://lmstudio.ai/download) 下载 Windows 版安装包，双击完成安装。
+
+### 2️⃣ 下载视觉模型
+
+**推荐模型：[MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-abliterated-MAX)**
+
+在 LM Studio 中搜索 `minicpm-v` 找到并下载，或从 Hugging Face 下载 GGUF 文件后拖入 LM Studio 左侧面板。
+
+推荐量化版本：
+
+| 模型 | 文件大小 | 显存需求 | 推荐配置 |
+|------|---------|---------|---------|
+| MiniCPM-V-4.6-Thinking **Q8_0** | ~10GB | ~8GB 显存 | RTX 4060 / 3060 12GB 以上 |
+| MiniCPM-V-4.6-Thinking **Q4_K_M** | ~5GB | ~5GB 显存 | 6GB 显存以上均可 |
+
+> **参考配置**：i7-13700H + RTX 4060 (8GB) + 32GB RAM 实测 Q8_0 版流畅运行，推理速度约 120 token/s
+
+也可选择其他视觉模型（qwen-vl、llava 等），只要 LM Studio 能加载即可。
+
+### 3️⃣ 加载模型并开启 API
+1. 在 LM Studio 左侧「模型」面板中选择下载好的模型
+2. 点击「加载模型」（Load Model）加载到显存
+3. 点击左侧「开发者」（Developer）面板
+4. 在「本地推理服务」（Local Inference Server）中点击「启动服务」（Start Server）
+5. 确认端口为 1234（默认值）
+
+### 4️⃣ 验证服务
+```bash
+curl http://127.0.0.1:1234/v1/models
+```
+返回模型列表即表示 LM Studio 已就绪。
+
+### 5️⃣ 接入本项目
+```bash
+git clone https://github.com/FuchaZ/lm-studio-vision-bridge.git
+cd lm-studio-vision-bridge
+
+# CLI 模式：直接看图
+python lms-vision.py 图片路径.jpg
+
+# MCP HTTP 模式：启动服务（Windows 推荐）
+python mcp-http-server.py
+```
+
+完成后，根据下方「我该选哪个」选择最适合你的接入方式。
+
 ## 它解决什么问题
 
 纯文本模型推理能力强但没有视觉。能看图的模型要么贵，要么数据得上云。

@@ -4,6 +4,55 @@
 
 Give eyes to your text-only AI agent — bridge LM Studio local vision models to any agent via MCP protocol or CLI.
 
+## Quick Start: 5 minutes
+
+### 1️⃣ Install LM Studio
+Download from [lmstudio.ai/download](https://lmstudio.ai/download) and install.
+
+### 2️⃣ Download a vision model
+
+**Recommended model: [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-abliterated-MAX)**
+
+Search `minicpm-v` in LM Studio's model search, or download GGUF files from Hugging Face and drag them into the left panel.
+
+GGUF quantization options:
+
+| Model | File size | VRAM | Recommended GPU |
+|-------|-----------|------|-----------------|
+| MiniCPM-V-4.6-Thinking **Q8_0** | ~10GB | ~8GB VRAM | RTX 4060 / 3060 12GB+ |
+| MiniCPM-V-4.6-Thinking **Q4_K_M** | ~5GB | ~5GB VRAM | 6GB+ VRAM |
+
+> **Reference config**: i7-13700H + RTX 4060 (8GB) + 32GB RAM runs Q8_0 smoothly at ~120 token/s
+
+Other vision models (qwen-vl, llava, etc.) also work as long as LM Studio can load them.
+
+### 3️⃣ Load the model and start the API
+1. Select your model in LM Studio's left panel
+2. Click "Load Model" to load it into VRAM
+3. Click "Developer" panel on the left
+4. Under "Local Inference Server", click "Start Server"
+5. Confirm the port is 1234 (default)
+
+### 4️⃣ Verify the service
+```bash
+curl http://127.0.0.1:1234/v1/models
+```
+You should see your model listed.
+
+### 5️⃣ Connect this project
+```bash
+git clone https://github.com/FuchaZ/lm-studio-vision-bridge.git
+cd lm-studio-vision-bridge
+
+# CLI mode: read an image directly
+python lms-vision.py image.jpg
+
+# MCP HTTP mode: start the server (Windows recommended)
+python mcp-http-server.py
+```
+
+Then check "Which one should I use" below to pick your preferred setup.
+
 ## What it does
 
 Text-only LLMs can't process images. Vision-capable models (GPT-4o, Gemini) are either expensive or require sending data to the cloud.
